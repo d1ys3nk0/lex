@@ -5,13 +5,34 @@ description = "SIP lint checks for repository-local governance"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
+authors = [
+  { name = "d1ys3nk0" },
+]
+keywords = ["cli", "governance", "lint", "sip"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
   "PyYAML>=6.0.2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/d1ys3nk0/lex"
+Repository = "https://github.com/d1ys3nk0/lex"
+Issues = "https://github.com/d1ys3nk0/lex/issues"
+
 [dependency-groups]
 ci = [
+  "pre-commit>=4.2.0",
   "pytest>=8.4.0",
+  "pytest-cov>=7.0.0",
   "ruff>=0.13.0",
   "ty>=0.0.19",
 ]
@@ -26,6 +47,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lex"]
+include = ["src/lex/py.typed"]
 
 [tool.uv]
 default-groups = ["ci", "dev"]
@@ -69,3 +91,19 @@ lines-after-imports = 2
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "PLR2004", "SLF001"]
+
+[tool.pytest.ini_options]
+addopts = "-q --tb=short --strict-config --strict-markers --maxfail=1"
+testpaths = ["tests"]
+markers = [
+  "unit: Unit tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90

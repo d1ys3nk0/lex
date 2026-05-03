@@ -2,6 +2,8 @@
 
 Lex is a small SIP lint runner for Python repositories.
 
+Source: <https://github.com/d1ys3nk0/lex>
+
 It reads a root `lex.yml` file:
 
 ```yaml
@@ -39,3 +41,26 @@ def run(*, repo_root, src_dir, **args) -> list[str]:
 ```
 
 Custom check names must not collide with built-in names.
+
+## Install
+
+```sh
+uv tool install git+https://github.com/d1ys3nk0/lex.git
+```
+
+Docker images are published to GHCR on `main`:
+
+```sh
+docker run --rm ghcr.io/d1ys3nk0/lex:latest
+```
+
+## Development
+
+```sh
+uv sync --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+uv run pytest --cov=src --cov-fail-under=90
+uv build --no-sources
+```

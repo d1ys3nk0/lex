@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff-check
+        stages: [pre-commit]
+      - id: ruff-format
+        stages: [pre-commit]
+      - id: ruff-check
+        alias: ruff-check-fix
+        name: ruff check fix
+        args: [--fix]
+        stages: [manual]
+      - id: ruff-format
+        alias: ruff-format-fix
+        name: ruff format fix
+        stages: [manual]
+
+  - repo: local
+    hooks:
+      - id: ty-check
+        name: ty check
+        entry: uv run ty check
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        types: [python]

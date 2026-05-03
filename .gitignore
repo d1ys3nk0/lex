@@ -1,4 +1,9 @@
 .venv/
+.uv-cache/
+.coverage
+htmlcov/
+build/
+dist/
 .pytest_cache/
 .ruff_cache/
 __pycache__/

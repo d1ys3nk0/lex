@@ -27,12 +27,12 @@ class PackageConfig:
 
 def normalize_packages(packages: object) -> tuple[list[PackageConfig] | None, str | None]:
     if not isinstance(packages, list) or not packages:
-        return (None, "file_structure: args.packages must be a non-empty list")
+        return (None, "args.packages must be a non-empty list")
     valid_kinds = frozenset({"class_pattern", "cli", "function_pattern"})
     result: list[PackageConfig] = []
     for index, raw_item in enumerate(packages):
         if not isinstance(raw_item, dict):
-            return (None, f"file_structure: packages[{index}] must be a mapping")
+            return (None, f"packages[{index}] must be a mapping")
         item: dict[str, Any] = cast("dict[str, Any]", raw_item)
         try:
             dir_name = item["dir"]
@@ -40,15 +40,15 @@ def normalize_packages(packages: object) -> tuple[list[PackageConfig] | None, st
             class_suffix = item["class_suffix"]
             validator = item["validator"]
         except KeyError as error:
-            return (None, f"file_structure: packages[{index}] missing required key {error.args[0]!r}")
+            return (None, f"packages[{index}] missing required key {error.args[0]!r}")
         if not isinstance(dir_name, str) or not dir_name:
-            return (None, f"file_structure: packages[{index}].dir must be a non-empty string")
+            return (None, f"packages[{index}].dir must be a non-empty string")
         if not isinstance(file_suffix, str) or not file_suffix:
-            return (None, f"file_structure: packages[{index}].file_suffix must be a non-empty string")
+            return (None, f"packages[{index}].file_suffix must be a non-empty string")
         if not isinstance(class_suffix, str) or not class_suffix:
-            return (None, f"file_structure: packages[{index}].class_suffix must be a non-empty string")
+            return (None, f"packages[{index}].class_suffix must be a non-empty string")
         if not isinstance(validator, str) or validator not in valid_kinds:
-            return (None, f"file_structure: packages[{index}].validator must be one of {sorted(valid_kinds)}")
+            return (None, f"packages[{index}].validator must be one of {sorted(valid_kinds)}")
 
         allowed: tuple[str, ...] = ()
         commands_subdir = ""
@@ -59,11 +59,11 @@ def normalize_packages(packages: object) -> tuple[list[PackageConfig] | None, st
                 or not raw_allowed
                 or not all(isinstance(x, str) and x for x in raw_allowed)
             ):
-                return (None, f"file_structure: packages[{index}].cli_root_allowed_files must be non-empty strings")
+                return (None, f"packages[{index}].cli_root_allowed_files must be non-empty strings")
             allowed = tuple(raw_allowed)
             raw_subdir = item.get("cli_commands_subdir")
             if not isinstance(raw_subdir, str) or not raw_subdir:
-                return (None, f"file_structure: packages[{index}] (cli) requires cli_commands_subdir string")
+                return (None, f"packages[{index}] (cli) requires cli_commands_subdir string")
             commands_subdir = raw_subdir
 
         result.append(
