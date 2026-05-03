@@ -1,0 +1,71 @@
+[project]
+name = "lex"
+version = "0.1.0"
+description = "SIP lint checks for repository-local governance"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+dependencies = [
+  "PyYAML>=6.0.2",
+]
+
+[dependency-groups]
+ci = [
+  "pytest>=8.4.0",
+  "ruff>=0.13.0",
+  "ty>=0.0.19",
+]
+dev = []
+
+[project.scripts]
+lex = "lex.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lex"]
+
+[tool.uv]
+default-groups = ["ci", "dev"]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN401",
+  "BLE001",
+  "C901",
+  "COM812",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D107",
+  "D203",
+  "D212",
+  "D401",
+  "E501",
+  "INP001",
+  "PERF401",
+  "PLR0911",
+  "PLR0912",
+  "S105",
+  "T201",
+  "TC003",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lex"]
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "PLR2004", "SLF001"]
