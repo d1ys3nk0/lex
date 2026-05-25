@@ -6,7 +6,7 @@ from typing import Any, cast
 
 
 MISSING_LINE = "<missing>"
-DEFAULT_SRC = ".env.sample"
+DEFAULT_SRC = ".env"
 
 
 @dataclass(frozen=True)
@@ -17,8 +17,16 @@ class Mismatch:
     expected: str
 
 
+@dataclass(frozen=True)
+class EnvAssignment:
+    line_num: int
+    key: str
+    value: str
+    line: str
+
+
 def discover_env_targets(repo_root: Path, *, src_resolved: Path) -> list[Path]:
-    return sorted(path for path in repo_root.glob(".env*") if path.is_file() and path.resolve() != src_resolved)
+    return sorted(path for path in repo_root.glob(".env.*") if path.is_file() and path.resolve() != src_resolved)
 
 
 def parse_env_assignment(line: str) -> tuple[str, str] | None:
@@ -38,6 +46,17 @@ def collect_env_values(lines: list[str]) -> dict[str, str]:
     return values
 
 
+def collect_env_assignments(lines: list[str]) -> list[EnvAssignment]:
+    assignments: list[EnvAssignment] = []
+    for index, line in enumerate(lines):
+        parsed = parse_env_assignment(line)
+        if parsed is None:
+            continue
+        key, value = parsed
+        assignments.append(EnvAssignment(line_num=index + 1, key=key, value=value, line=line))
+    return assignments
+
+
 def render_env_file(sample_lines: list[str], target_lines: list[str]) -> list[str]:
     target_values = collect_env_values(target_lines[: len(sample_lines)])
     rendered: list[str] = []
@@ -51,17 +70,67 @@ def render_env_file(sample_lines: list[str], target_lines: list[str]) -> list[st
     return rendered
 
 
-def find_first_env_structure_mismatch(
-    expected_lines: list[str],
+def render_env_override_file(source_lines: list[str], target_lines: list[str]) -> list[str]:
+    source_order = {assignment.key: index for index, assignment in enumerate(collect_env_assignments(source_lines))}
+    target_assignments = collect_env_assignments(target_lines)
+    leading_lines: list[str] = []
+    for line in target_lines:
+        if parse_env_assignment(line) is not None:
+            break
+        leading_lines.append(line)
+    ordered_assignments = sorted(
+        target_assignments,
+        key=lambda assignment: source_order.get(assignment.key, len(source_order) + assignment.line_num),
+    )
+    rendered = [*leading_lines, *(f"{assignment.key}={assignment.value}" for assignment in ordered_assignments)]
+    while rendered and rendered[-1] == "":
+        rendered.pop()
+    return rendered
+
+
+def find_first_env_override_mismatch(
+    source_lines: list[str],
     target_path: Path,
     target_lines: list[str],
 ) -> Mismatch | None:
-    total_lines = max(len(expected_lines), len(target_lines))
-    for index in range(total_lines):
-        expected_line = expected_lines[index] if index < len(expected_lines) else MISSING_LINE
-        target_line = target_lines[index] if index < len(target_lines) else MISSING_LINE
-        if expected_line != target_line:
-            return Mismatch(path=target_path, line_num=index + 1, current=target_line, expected=expected_line)
+    source_assignments = collect_env_assignments(source_lines)
+    source_order = {assignment.key: index for index, assignment in enumerate(source_assignments)}
+    target_assignments = collect_env_assignments(target_lines)
+
+    previous_source_index = -1
+    for assignment in target_assignments:
+        source_index = source_order.get(assignment.key)
+        if source_index is None:
+            return Mismatch(
+                path=target_path, line_num=assignment.line_num, current=assignment.line, expected=MISSING_LINE
+            )
+        if source_index < previous_source_index:
+            expected_lines = render_env_override_file(source_lines, target_lines)
+            expected_line = (
+                expected_lines[assignment.line_num - 1]
+                if assignment.line_num <= len(expected_lines)
+                else expected_lines[-1]
+                if expected_lines
+                else MISSING_LINE
+            )
+            return Mismatch(
+                path=target_path, line_num=assignment.line_num, current=assignment.line, expected=expected_line
+            )
+        previous_source_index = source_index
+    return None
+
+
+def find_first_unknown_env_assignment(
+    source_lines: list[str],
+    target_path: Path,
+    target_lines: list[str],
+) -> Mismatch | None:
+    source_keys = {assignment.key for assignment in collect_env_assignments(source_lines)}
+    for assignment in collect_env_assignments(target_lines):
+        if assignment.key not in source_keys:
+            return Mismatch(
+                path=target_path, line_num=assignment.line_num, current=assignment.line, expected=MISSING_LINE
+            )
     return None
 
 
@@ -114,7 +183,7 @@ def check_env_files_match_sample(
     else:
         env_files = discover_env_targets(repo_root, src_resolved=src_path.resolve())
         if not env_files:
-            return [f"No top-level .env* files found to check (source excluded: {src_path.name})"]
+            return [f"No top-level .env.* files found to check (source excluded: {src_path.name})"]
 
     errors: list[str] = []
     for target_path in env_files:
@@ -123,14 +192,17 @@ def check_env_files_match_sample(
         except OSError as error:
             errors.append(f"Error reading {target_path}: {error}")
             continue
-        expected_lines = render_env_file(sample_full, target_lines)
-        prefix_len = len(sample_full)
-        mismatch = find_first_env_structure_mismatch(expected_lines, target_path, target_lines[:prefix_len])
+        expected_lines = render_env_override_file(sample_full, target_lines)
+        mismatch = find_first_env_override_mismatch(sample_full, target_path, target_lines)
         if mismatch is None:
             continue
         if fix:
+            unknown_mismatch = find_first_unknown_env_assignment(sample_full, target_path, target_lines)
+            if unknown_mismatch is not None:
+                errors.append(_format_mismatch(unknown_mismatch, repo_root))
+                continue
             try:
-                target_path.write_text("\n".join(expected_lines + target_lines[prefix_len:]) + "\n", encoding="utf-8")
+                target_path.write_text("\n".join(expected_lines) + "\n", encoding="utf-8")
             except OSError as error:
                 errors.append(f"Error writing {target_path}: {error}")
             continue

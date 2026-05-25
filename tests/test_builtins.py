@@ -8,6 +8,7 @@ from lex.builtins.dotenv_format import (
     collect_env_values,
     parse_env_assignment,
     render_env_file,
+    render_env_override_file,
 )
 from lex.builtins.dotenv_format import (
     run as run_dotenv_format,
@@ -38,6 +39,13 @@ def test_dotenv_format_checks_explicit_pairs(tmp_path: Path) -> None:
     assert ".env.main" in errors[0]
 
 
+def test_dotenv_format_allows_ordered_subset_overrides(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("A=base\nB=base\nC=base\n", encoding="utf-8")
+    (tmp_path / ".env.local").write_text("# local overrides\nB=local\nC=local\n", encoding="utf-8")
+
+    assert check_env_files_match_sample(tmp_path, src=".env") == []
+
+
 def test_dotenv_format_parses_and_renders_assignments() -> None:
     assert parse_env_assignment(" A = value ") == ("A", "value")
     assert parse_env_assignment("# A=value") is None
@@ -48,17 +56,36 @@ def test_dotenv_format_parses_and_renders_assignments() -> None:
         "# comment",
         "B=sample",
     ]
+    assert render_env_override_file(["A=sample", "B=sample"], ["# local", "B=target", "A=target", "EXTRA=1"]) == [
+        "# local",
+        "A=target",
+        "B=target",
+        "EXTRA=1",
+    ]
 
 
 def test_dotenv_format_discovers_targets_and_applies_fix(tmp_path: Path) -> None:
-    (tmp_path / ".env.sample").write_text("A=sample\nB=sample\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("A=sample\nB=sample\n", encoding="utf-8")
     target = tmp_path / ".env.local"
-    target.write_text("B=target\nA=target\nEXTRA=1\n", encoding="utf-8")
+    target.write_text("B=target\nA=target\n", encoding="utf-8")
 
     errors = check_env_files_match_sample(tmp_path, fix=True)
 
     assert errors == []
-    assert target.read_text(encoding="utf-8") == "A=target\nB=target\nEXTRA=1\n"
+    assert target.read_text(encoding="utf-8") == "A=target\nB=target\n"
+
+
+def test_dotenv_format_fix_does_not_remove_unknown_keys(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("A=sample\nB=sample\n", encoding="utf-8")
+    target = tmp_path / ".env.local"
+    original = "B=target\nA=target\nEXTRA=1\n"
+    target.write_text(original, encoding="utf-8")
+
+    errors = check_env_files_match_sample(tmp_path, fix=True)
+
+    assert len(errors) == 1
+    assert "EXTRA=1 -> <missing>" in errors[0]
+    assert target.read_text(encoding="utf-8") == original
 
 
 def test_dotenv_format_validates_paths_and_pairs(tmp_path: Path) -> None:
@@ -73,10 +100,10 @@ def test_dotenv_format_validates_paths_and_pairs(tmp_path: Path) -> None:
 def test_dotenv_format_reports_missing_source_target_and_no_targets(tmp_path: Path) -> None:
     assert "Source file not found" in check_env_files_match_sample(tmp_path)[0]
 
-    sample = tmp_path / ".env.sample"
+    sample = tmp_path / ".env"
     sample.write_text("A=1\n", encoding="utf-8")
     assert check_env_files_match_sample(tmp_path) == [
-        f"No top-level .env* files found to check (source excluded: {sample.name})"
+        f"No top-level .env.* files found to check (source excluded: {sample.name})"
     ]
     assert "Target file not found" in check_env_files_match_sample(tmp_path, tgt=".env.local")[0]
 

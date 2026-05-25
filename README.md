@@ -29,7 +29,7 @@ uv run lex -c lex.yml --only dotenv_format --fix true
 
 Built-in checks:
 
-- `dotenv_format`: validates `.env*` files against sample structure.
+- `dotenv_format`: validates `.env.*` override files against `.env` key names and ordering by default.
 - `file_structure`: validates configured `src/` subpackage naming and layout.
 - `markdown_links`: validates relative Markdown link targets.
 
