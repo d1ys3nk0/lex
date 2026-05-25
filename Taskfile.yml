@@ -1,0 +1,89 @@
+---
+
+version: '3'
+
+vars:
+  PRE_COMMIT: uv run pre-commit
+  PYTHON_VERSION: '3.13'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install dependencies and git hooks
+    cmds:
+      - task: deps
+      - task: hooks
+
+  deps:
+    desc: Install dependencies
+    cmds:
+      - uv sync
+
+  deps-up:
+    desc: Upgrade dependencies
+    cmds:
+      - uv sync --upgrade
+
+  hooks:
+    desc: Install git hooks
+    cmds:
+      - '{{.PRE_COMMIT}} install'
+
+  lint:
+    desc: Run formatting fixes and checks
+    cmds:
+      - task: lint-fix
+      - task: lint-chk
+
+  lint-fix:
+    desc: Run manual-stage pre-commit fixes
+    cmds:
+      - '{{.PRE_COMMIT}} run --hook-stage manual --all-files >/dev/null || true'
+
+  lint-chk:
+    desc: Run pre-commit checks
+    cmds:
+      - '{{.PRE_COMMIT}} run --hook-stage pre-commit --all-files'
+
+  fmt:
+    desc: Format source files
+    cmds:
+      - task: lint-fix
+
+  typecheck:
+    desc: Run type checks
+    cmds:
+      - uv run ty check
+
+  test:
+    desc: Run tests
+    cmds:
+      - uv run python -m pytest
+
+  test-cov:
+    desc: Run tests with coverage
+    cmds:
+      - uv run python -m pytest --cov=src --cov-fail-under=90 --cov-report=term-missing
+
+  build:
+    desc: Build Python package artifacts
+    cmds:
+      - uv build --no-sources
+
+  check:
+    desc: Run all project checks
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+      - uv run ty check
+      - uv run python -m pytest --cov=src --cov-fail-under=90
+      - uv build --no-sources
+
+  clean:
+    desc: Remove caches and build artifacts
+    cmds:
+      - rm -rf .coverage .pytest_cache .ruff_cache .venv .uv-cache build dist htmlcov
+      - find . -type d -name "__pycache__" -prune -exec rm -rf {} +
